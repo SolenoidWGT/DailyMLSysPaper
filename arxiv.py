@@ -9,10 +9,11 @@ import requests
 import time
 import json
 import datetime
+import re
 from tqdm import tqdm
 
 SERVERCHAN_API_KEY = os.environ.get("SERVERCHAN_API_KEY", None)
-QUERY = os.environ.get('QUERY', 'cs.IR')
+QUERY = os.environ.get('QUERY', 'cs.DC')
 LIMITS = int(os.environ.get('LIMITS', 3))
 CAIYUN_TOKEN = os.environ.get("CAIYUN_TOKEN", None)
 FEISHU_URL = os.environ.get("FEISHU_URL", None)
@@ -65,10 +66,10 @@ def search_arxiv_papers(search_term, max_results=10):
     print('[+] 开始处理每日最新论文....')
 
     for entry in entries:
-
         title = entry.split('<title>')[1].split('</title>')[0].strip()
         summary = entry.split('<summary>')[1].split('</summary>')[0].strip()
         url = entry.split('<id>')[1].split('</id>')[0].strip()
+        authors = ", ".join(re.findall(r'<name>(.*?)</name>', entry))
         pub_date = entry.split('<published>')[1].split('</published>')[0]
         pub_date = datetime.datetime.strptime(pub_date, "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%d")
 
@@ -77,10 +78,11 @@ def search_arxiv_papers(search_term, max_results=10):
             'url': url,
             'pub_date': pub_date,
             'summary': summary,
+            'authors': authors,
             'translated': '',
         })
     
-    print('[+] 开始翻译每日最新论文并缓存....')
+    print(f'[+] 开始翻译每日最新论文并缓存....,')
 
     papers = save_and_translate(papers)
     
@@ -167,9 +169,6 @@ def save_and_translate(papers, filename='arxiv.json'):
         
 def cronjob():
 
-    if SERVERCHAN_API_KEY is None:
-        raise Exception("未设置SERVERCHAN_API_KEY环境变量")
-
     print('[+] 开始执行每日推送任务....')
 
     yesterday = get_yesterday()
@@ -178,7 +177,7 @@ def cronjob():
     print('[+] 开始检索每日最新论文....')
     papers = search_arxiv_papers(QUERY, LIMITS)
 
-    if papers == []:
+    if papers == [] and SERVERCHAN_API_KEY is not None:
         
         push_title = f'Arxiv:{QUERY}[X]@{today}'
         send_wechat_message('', '[WARN] NO UPDATE TODAY!', SERVERCHAN_API_KEY)
@@ -187,14 +186,14 @@ def cronjob():
 
         return True
         
-
-    print('[+] 开始推送每日最新论文....')
+    print(f'[+] 开始推送每日最新论文, nums: {len(papers)}....')
 
     for ii, paper in enumerate(tqdm(papers, total=len(papers), desc=f"论文推送进度")):
 
         title = paper['title']
         url = paper['url']
         pub_date = paper['pub_date']
+        authors = paper['authors']
         summary = paper['summary']
         translated = paper['translated']
 
@@ -207,11 +206,13 @@ def cronjob():
 
         msg_url = f'URL: {url}'
         msg_pub_date = f'Pub Date：{pub_date}'
-        msg_summary = f'Summary：\n\n{summary}'
-        msg_translated = f'Translated:\n\n{translated}'
+        msg_authors = f'Authors：{authors}'
+
+        # msg_summary = f'Summary：\n\n{summary}'
+        msg_translated = f'\n{translated}'
 
         push_title = f'Arxiv:{QUERY}[{ii}]@{today}'
-        msg_content = f"[{msg_title}]({url})\n\n{msg_pub_date}\n\n{msg_url}\n\n{msg_translated}\n\n{msg_summary}\n\n"
+        msg_content = f"[{msg_title}]({url})\n{msg_pub_date}\n{msg_url}\n{msg_authors}\n{msg_translated}\n\n"
 
         # send_wechat_message(push_title, msg_content, SERVERCHAN_API_KEY)
         send_feishu_message(push_title, msg_content, FEISHU_URL)
