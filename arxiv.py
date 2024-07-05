@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 SERVERCHAN_API_KEY = os.environ.get("SERVERCHAN_API_KEY", None)
 QUERY = os.environ.get('QUERY', 'cs.DC')
-LIMITS = int(os.environ.get('LIMITS', 3))
+LIMITS = int(os.environ.get('LIMITS', 5))
 CAIYUN_TOKEN = os.environ.get("CAIYUN_TOKEN", None)
 FEISHU_URL = os.environ.get("FEISHU_URL", None)
 
