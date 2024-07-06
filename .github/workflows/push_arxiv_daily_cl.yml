@@ -14,7 +14,7 @@ jobs:
     env:
       CAIYUN_TOKEN: ${{ secrets.CAIYUN_TOKEN }}
       QUERY: "cs.DC"
-      LIMITS: 3
+      LIMITS: 10
       FEISHU_URL: ${{ secrets.FEISHU_URL }}
 
     permissions:
